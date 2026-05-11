@@ -34,23 +34,54 @@ class SourceDefinition:
         return self.query_encoding
 
 
+@dataclass(frozen=True)
+class KeywordGroups:
+    primary: list[str]
+    junior: list[str]
+
+
 def _load_json(path: Path) -> Any:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
-def load_keywords(path: Path) -> list[str]:
-    payload = _load_json(path)
-    if not isinstance(payload, list):
-        raise ValueError("keywords.json must contain a JSON list")
+def _load_keyword_list(value: Any, field_name: str) -> list[str]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field_name} must be a JSON list")
     keywords: list[str] = []
-    for item in payload:
+    for item in value:
         if not isinstance(item, str):
-            raise ValueError("keywords.json must contain only strings")
+            raise ValueError(f"{field_name} must contain only strings")
         keyword = item.strip()
         if keyword:
             keywords.append(keyword)
     return keywords
+
+
+def load_keyword_groups(path: Path) -> KeywordGroups:
+    payload = _load_json(path)
+    if isinstance(payload, list):
+        return KeywordGroups(primary=_load_keyword_list(payload, "keywords.json"), junior=[])
+    if not isinstance(payload, dict):
+        raise ValueError("keywords.json must contain either a JSON list or an object with keyword groups")
+
+    primary = payload.get("primary", payload.get("keywords", []))
+    junior = payload.get("junior", [])
+    if not isinstance(primary, list):
+        raise ValueError("keywords.json primary must be a JSON list")
+    if not isinstance(junior, list):
+        raise ValueError("keywords.json junior must be a JSON list")
+    return KeywordGroups(
+        primary=_load_keyword_list(primary, "keywords.json primary"),
+        junior=_load_keyword_list(junior, "keywords.json junior"),
+    )
+
+
+def load_keywords(path: Path, include_junior: bool = False) -> list[str]:
+    groups = load_keyword_groups(path)
+    if include_junior:
+        return groups.primary + groups.junior
+    return groups.primary
 
 
 def _coerce_bool(value: Any, field_name: str, source_id: str) -> bool:
@@ -109,6 +140,10 @@ def default_config_dir() -> Path:
 
 def load_default_keywords(config_dir: Path | None = None) -> list[str]:
     return load_keywords((config_dir or default_config_dir()) / "keywords.json")
+
+
+def load_default_keyword_groups(config_dir: Path | None = None) -> KeywordGroups:
+    return load_keyword_groups((config_dir or default_config_dir()) / "keywords.json")
 
 
 def load_default_sources(config_dir: Path | None = None) -> list[SourceDefinition]:

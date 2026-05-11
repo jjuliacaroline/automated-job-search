@@ -16,7 +16,8 @@ Source additions:
 Keyword updates:
 
 - Keep keywords ordered and concise.
-- Include both environmental/sustainability terms and junior-friendly terms when updating the default list.
+- Keep the default `primary` group focused on non-junior terms.
+- Put `junior`, `trainee`, `intern`, `graduate`, `harjoittelija`, and `vastavalmistunut` in the separate `junior` group only.
 - If a keyword becomes noisy or too broad, remove it from the JSON config instead of hard-coding exceptions.
 
 Implementation expectations:
@@ -24,4 +25,3 @@ Implementation expectations:
 - Preserve the CLI-first design.
 - Keep dependencies minimal. Standard library should remain the default choice.
 - Maintain test coverage for config loading, URL generation, source filtering, CSV export, and basic CLI behavior.
-

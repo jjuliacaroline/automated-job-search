@@ -22,6 +22,11 @@ This MVP is intentionally small.
 
 Keywords and sources live in editable JSON files. The CLI loads them at runtime, which keeps the job-board catalog easy to change without touching the generator.
 
+The keyword config is split into two groups:
+
+- `primary`: default search terms
+- `junior`: an optional group that only appears when explicitly enabled
+
 Sources use a minimal schema:
 
 - `id`
@@ -37,9 +42,10 @@ Templates use a single `{query}` placeholder. The generator percent-encodes the 
 - `generate` prints the generated rows and can export them to CSV.
 - `generate --source ...` limits output to one or more source ids.
 - `generate --keyword ...` uses explicit keywords instead of the defaults.
+- `generate --include-junior` appends the optional junior group.
+- `serve` exposes the same split in the browser UI with a dedicated junior checkbox.
 - `open --limit N` opens at most `N` already generated URLs and never exceeds the requested limit.
 
 ## Why It Stops Here
 
 This repository is designed as an MVP for search-link generation, not a crawler or job aggregation service. Stopping at URLs keeps the code predictable, avoids site-specific breakage, and avoids any need for scraping logic, automated browsing, or anti-bot workarounds.
-

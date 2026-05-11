@@ -1,17 +1,20 @@
-[
-  "environmental",
-  "sustainability",
-  "environment",
-  "climate",
-  "ESG",
-  "environmental science",
-  "environmental specialist",
-  "sustainability specialist",
-  "junior",
-  "trainee",
-  "intern",
-  "graduate",
-  "harjoittelija",
-  "vastavalmistunut"
-]
-
+{
+  "primary": [
+    "environmental",
+    "sustainability",
+    "environment",
+    "climate",
+    "ESG",
+    "environmental science",
+    "environmental specialist",
+    "sustainability specialist"
+  ],
+  "junior": [
+    "junior",
+    "trainee",
+    "intern",
+    "graduate",
+    "harjoittelija",
+    "vastavalmistunut"
+  ]
+}

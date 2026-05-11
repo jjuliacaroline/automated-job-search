@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import html
+import threading
+import webbrowser
 from collections import defaultdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from textwrap import dedent
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .config import SourceDefinition, default_config_dir, load_default_keywords, load_default_sources
+from .config import (
+    KeywordGroups,
+    SourceDefinition,
+    default_config_dir,
+    load_default_keyword_groups,
+    load_default_sources,
+)
 from .generation import GeneratedLink, filter_sources, generate_links, normalize_keywords
 
 
@@ -25,25 +33,30 @@ def _page_data(
     config_dir=None,
     selected_source_ids: list[str] | None = None,
     raw_keywords: str = "",
+    include_junior: bool = False,
 ) -> dict[str, Any]:
     config_root = config_dir or default_config_dir()
-    default_keywords = load_default_keywords(config_root)
+    keyword_groups = load_default_keyword_groups(config_root)
     all_sources = load_default_sources(config_root)
     enabled_sources = [source for source in all_sources if source.enabled]
-    keywords = _split_keywords(raw_keywords) or normalize_keywords(default_keywords)
+    base_keywords = keyword_groups.primary
+    selected_keywords = _split_keywords(raw_keywords) or normalize_keywords(base_keywords)
+    if include_junior:
+        selected_keywords = normalize_keywords(selected_keywords + keyword_groups.junior)
     sources = filter_sources(enabled_sources, selected_source_ids)
-    rows = generate_links(sources, keywords)
+    rows = generate_links(sources, selected_keywords)
     grouped_rows: dict[str, list[GeneratedLink]] = defaultdict(list)
     for row in rows:
         grouped_rows[row.source_id].append(row)
     return {
-        "default_keywords": default_keywords,
+        "keyword_groups": keyword_groups,
         "enabled_sources": enabled_sources,
-        "keywords": keywords,
+        "keywords": selected_keywords,
         "raw_keywords": raw_keywords,
         "rows": rows,
         "grouped_rows": dict(grouped_rows),
         "selected_source_ids": {source.id for source in sources},
+        "include_junior": include_junior,
     }
 
 
@@ -52,19 +65,23 @@ def render_page(
     config_dir=None,
     selected_source_ids: list[str] | None = None,
     raw_keywords: str = "",
+    include_junior: bool = False,
     error_message: str | None = None,
 ) -> str:
     data = _page_data(
         config_dir=config_dir,
         selected_source_ids=selected_source_ids,
         raw_keywords=raw_keywords,
+        include_junior=include_junior,
     )
     enabled_sources: list[SourceDefinition] = data["enabled_sources"]
     grouped_rows: dict[str, list[GeneratedLink]] = data["grouped_rows"]
     selected_ids: set[str] = data["selected_source_ids"]
     keywords: list[str] = data["keywords"]
     escaped_keywords = html.escape(data["raw_keywords"])
-    default_keywords_preview = ", ".join(data["default_keywords"][:6])
+    keyword_groups: KeywordGroups = data["keyword_groups"]
+    primary_keywords_preview = ", ".join(keyword_groups.primary[:6])
+    junior_count = len(keyword_groups.junior)
     cards: list[str] = []
 
     for source in enabled_sources:
@@ -221,6 +238,16 @@ def render_page(
               color: var(--muted);
               font-size: 0.92rem;
             }}
+            .toggle-row {{
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-top: 12px;
+              padding: 12px 14px;
+              border-radius: 16px;
+              background: white;
+              border: 1px solid var(--line);
+            }}
             .source-grid {{
               display: grid;
               gap: 10px;
@@ -369,7 +396,11 @@ def render_page(
                 <form method="get" action="/">
                   <p class="section-title">Keywords</p>
                   <textarea name="keywords" placeholder="One keyword per line">{escaped_keywords}</textarea>
-                  <p class="hint">Leave blank to use defaults. Current defaults start with: {html.escape(default_keywords_preview)}</p>
+                  <p class="hint">Leave blank to use defaults. Main keywords start with: {html.escape(primary_keywords_preview)}</p>
+                  <label class="toggle-row">
+                    <input type="checkbox" name="include_junior" {"checked" if include_junior else ""}>
+                    <span>Include junior keywords as an extra group ({junior_count})</span>
+                  </label>
                   <p class="section-title" style="margin-top: 22px;">Sources</p>
                   <div class="source-grid">
                     {source_options}
@@ -394,7 +425,7 @@ def render_page(
     ).strip()
 
 
-def create_handler(config_dir=None):
+def create_handler(config_dir=None, include_junior: bool = False):
     class JobLinksHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
@@ -405,12 +436,14 @@ def create_handler(config_dir=None):
             params = parse_qs(parsed.query)
             selected_source_ids = params.get("source")
             raw_keywords = params.get("keywords", [""])[0]
+            include_junior = "include_junior" in params
             error_message = None
             try:
                 page = render_page(
                     config_dir=config_dir,
                     selected_source_ids=selected_source_ids,
                     raw_keywords=raw_keywords,
+                    include_junior=include_junior,
                 )
             except ValueError as exc:
                 error_message = str(exc)
@@ -418,6 +451,7 @@ def create_handler(config_dir=None):
                     config_dir=config_dir,
                     selected_source_ids=None,
                     raw_keywords=raw_keywords,
+                    include_junior=include_junior,
                     error_message=error_message,
                 )
 
@@ -434,9 +468,19 @@ def create_handler(config_dir=None):
     return JobLinksHandler
 
 
-def serve_app(*, host: str = "127.0.0.1", port: int = 8000, config_dir=None) -> None:
-    server = ThreadingHTTPServer((host, port), create_handler(config_dir=config_dir))
-    print(f"Serving job links UI at http://{host}:{port}")
+def serve_app(
+    *,
+    host: str = "127.0.0.1",
+    port: int = 8000,
+    config_dir=None,
+    include_junior: bool = False,
+    open_browser: bool = True,
+) -> None:
+    server = ThreadingHTTPServer((host, port), create_handler(config_dir=config_dir, include_junior=include_junior))
+    url = f"http://{host}:{port}"
+    print(f"Serving job links UI at {url}")
+    if open_browser:
+        threading.Timer(0.3, lambda: webbrowser.open_new_tab(url)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:

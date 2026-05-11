@@ -32,6 +32,12 @@ Generate search URLs using the default keywords and sources:
 automated-job-search generate
 ```
 
+Include the optional junior keyword group:
+
+```bash
+automated-job-search generate --include-junior
+```
+
 Filter to one or more sources:
 
 ```bash
@@ -62,7 +68,7 @@ Run the local browser UI:
 automated-job-search serve
 ```
 
-Then open `http://127.0.0.1:8000` in your browser.
+The command opens `http://127.0.0.1:8000` in your browser automatically. Use `--no-browser` if you want to keep it terminal-only.
 
 ## Readability Options
 
@@ -86,6 +92,11 @@ Sources are currently:
 - Kuntarekry
 
 If you want to change keywords or add/remove sources, edit those JSON files instead of the Python modules.
+
+The keyword config is split into two groups:
+
+- `primary`: the default search terms
+- `junior`: opt-in junior-friendly terms such as `trainee` and `harjoittelija`
 
 ## Development
 
