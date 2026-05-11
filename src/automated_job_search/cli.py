@@ -9,6 +9,7 @@ from .browser import open_urls
 from .config import default_config_dir, load_default_keywords, load_default_sources
 from .csv_export import write_csv
 from .generation import filter_sources, generate_links, normalize_keywords
+from .webapp import serve_app
 
 
 def _add_common_generation_arguments(parser: argparse.ArgumentParser) -> None:
@@ -49,6 +50,10 @@ def build_parser() -> argparse.ArgumentParser:
         default=3,
         help="Maximum number of links to open. Defaults to a conservative cap of 3.",
     )
+
+    serve_parser = subparsers.add_parser("serve", help="Run a local web UI for generated links.")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Host interface to bind to.")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind to.")
     return parser
 
 
@@ -113,6 +118,15 @@ def run_open(
     return opened
 
 
+def run_serve(
+    *,
+    host: str,
+    port: int,
+    config_dir: Path | None = None,
+) -> None:
+    serve_app(host=host, port=port, config_dir=config_dir)
+
+
 def main(argv: list[str] | None = None, *, config_dir: Path | None = None, opener=None, stdout: TextIO = sys.stdout) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -131,6 +145,9 @@ def main(argv: list[str] | None = None, *, config_dir: Path | None = None, opene
         run_open(limit=args.limit, config_dir=config_dir, opener=opener, stdout=stdout)
         return 0
 
+    if args.command == "serve":
+        run_serve(host=args.host, port=args.port, config_dir=config_dir)
+        return 0
+
     parser.error(f"Unknown command: {args.command}")
     return 2
-

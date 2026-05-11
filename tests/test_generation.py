@@ -17,6 +17,36 @@ class GenerationTests(unittest.TestCase):
         url = build_search_url(source, "ympäristö asiantuntija")
         self.assertEqual(url, "https://duunitori.fi/tyopaikat?haku=ymp%C3%A4rist%C3%B6%20asiantuntija")
 
+    def test_duunitori_template_matches_current_search_shape(self) -> None:
+        source = SourceDefinition(
+            id="duunitori",
+            name="Duunitori",
+            enabled=True,
+            search_url_template="https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku={query}",
+            query_encoding="plus",
+        )
+        url = build_search_url(source, "ympäristötieteen alan tehtävät (ala)")
+        self.assertEqual(
+            url,
+            "https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku=ymp%C3%A4rist%C3%B6tieteen+alan+teht%C3%A4v%C3%A4t+%28ala%29",
+        )
+
+    def test_jobly_template_matches_current_search_shape(self) -> None:
+        source = SourceDefinition(
+            id="jobly",
+            name="Jobly",
+            enabled=True,
+            search_url_template=(
+                "https://www.jobly.fi/en/jobs/uusimaa?search={query}"
+                "&job_geo_location=&Search_jobs=Search+jobs&lat=&lon=&country=&administrative_area_level_1="
+            ),
+        )
+        url = build_search_url(source, "sustainability")
+        self.assertEqual(
+            url,
+            "https://www.jobly.fi/en/jobs/uusimaa?search=sustainability&job_geo_location=&Search_jobs=Search+jobs&lat=&lon=&country=&administrative_area_level_1=",
+        )
+
     def test_source_filtering_uses_enabled_sources_and_ids(self) -> None:
         sources = [
             SourceDefinition(id="jobly", name="Jobly", enabled=True, search_url_template="https://example.com/{query}"),
@@ -34,4 +64,3 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0].keyword, "environmental")
         self.assertEqual(rows[1].url, "https://example.com/trainee")
-

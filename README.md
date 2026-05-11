@@ -56,6 +56,22 @@ Open up to a small number of generated links:
 automated-job-search open --limit 5
 ```
 
+Run the local browser UI:
+
+```bash
+automated-job-search serve
+```
+
+Then open `http://127.0.0.1:8000` in your browser.
+
+## Readability Options
+
+If terminal output feels noisy, there are three practical ways to make it easier to scan:
+
+- Use `automated-job-search serve` for a clean browser view with clickable links and source filters.
+- Use `automated-job-search generate --source ...` to narrow results before viewing them.
+- Use `automated-job-search generate --csv links.csv` if you want to sort and review results in a spreadsheet.
+
 ## Configuration
 
 Editable config files live in `config/`:
@@ -80,4 +96,3 @@ python3 -m unittest discover -s tests -v
 ```
 
 The codebase uses only the Python standard library.
-

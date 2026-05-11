@@ -13,6 +13,7 @@ class SourceDefinition:
     enabled: bool
     search_url_template: str | None = None
     base_url: str | None = None
+    query_encoding: str | None = None
     notes: str | None = None
 
     @property
@@ -23,6 +24,14 @@ class SourceDefinition:
         if "{query}" not in template:
             raise ValueError(f"Source {self.id!r} template must contain '{{query}}' placeholder")
         return template
+
+    @property
+    def encoding_style(self) -> str:
+        if self.query_encoding is None:
+            return "percent"
+        if self.query_encoding not in {"percent", "plus"}:
+            raise ValueError(f"Source {self.id!r} query_encoding must be 'percent' or 'plus'")
+        return self.query_encoding
 
 
 def _load_json(path: Path) -> Any:
@@ -64,6 +73,7 @@ def load_sources(path: Path) -> list[SourceDefinition]:
         enabled = item.get("enabled")
         search_url_template = item.get("search_url_template")
         base_url = item.get("base_url")
+        query_encoding = item.get("query_encoding")
         notes = item.get("notes")
         if not isinstance(source_id, str) or not source_id.strip():
             raise ValueError("Each source must include a non-empty string id")
@@ -75,12 +85,15 @@ def load_sources(path: Path) -> list[SourceDefinition]:
             raise ValueError(f"Source {source_id!r} search_url_template must be a string if provided")
         if base_url is not None and not isinstance(base_url, str):
             raise ValueError(f"Source {source_id!r} base_url must be a string if provided")
+        if query_encoding is not None and not isinstance(query_encoding, str):
+            raise ValueError(f"Source {source_id!r} query_encoding must be a string if provided")
         source = SourceDefinition(
             id=source_id.strip(),
             name=name.strip(),
             enabled=_coerce_bool(enabled, "enabled", source_id),
             search_url_template=search_url_template.strip() if isinstance(search_url_template, str) else None,
             base_url=base_url.strip() if isinstance(base_url, str) else None,
+            query_encoding=query_encoding.strip() if isinstance(query_encoding, str) else None,
             notes=notes.strip() if isinstance(notes, str) else None,
         )
         sources.append(source)
