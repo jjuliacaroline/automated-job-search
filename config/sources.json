@@ -1,0 +1,24 @@
+[
+  {
+    "id": "jobly",
+    "name": "Jobly",
+    "enabled": true,
+    "search_url_template": "https://www.jobly.fi/en/jobs/{query}",
+    "notes": "Public search pages for keyword-driven job discovery."
+  },
+  {
+    "id": "duunitori",
+    "name": "Duunitori",
+    "enabled": true,
+    "search_url_template": "https://duunitori.fi/tyopaikat?haku={query}",
+    "notes": "Public search page with keyword query parameter."
+  },
+  {
+    "id": "kuntarekry",
+    "name": "Kuntarekry",
+    "enabled": true,
+    "search_url_template": "https://www.kuntarekry.fi/en/jobs/{query}/",
+    "notes": "Public search/category-style pages for municipal and public-sector roles."
+  }
+]
+

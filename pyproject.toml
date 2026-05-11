@@ -1,0 +1,15 @@
+[build-system]
+requires = []
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "automated-job-search"
+version = "0.1.0"
+description = "CLI MVP for Finland environmental job search links"
+requires-python = ">=3.11"
+readme = "README.md"
+dependencies = []
+
+[project.scripts]
+automated-job-search = "automated_job_search.cli:main"
