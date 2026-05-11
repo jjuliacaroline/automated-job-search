@@ -21,8 +21,6 @@ class SourceDefinition:
         template = self.search_url_template or self.base_url
         if not template:
             raise ValueError(f"Source {self.id!r} is missing a URL template")
-        if "{query}" not in template:
-            raise ValueError(f"Source {self.id!r} template must contain '{{query}}' placeholder")
         return template
 
     @property

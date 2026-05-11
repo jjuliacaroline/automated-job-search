@@ -43,11 +43,14 @@ def filter_sources(sources: list[SourceDefinition], selected_source_ids: list[st
 
 
 def build_search_url(source: SourceDefinition, keyword: str) -> str:
+    template = source.url_template
+    if "{query}" not in template:
+        return template
     if source.encoding_style == "plus":
         encoded_keyword = quote_plus(keyword.strip(), safe="")
     else:
         encoded_keyword = quote(keyword.strip(), safe="")
-    return source.url_template.format(query=encoded_keyword)
+    return template.format(query=encoded_keyword)
 
 
 def generate_links(

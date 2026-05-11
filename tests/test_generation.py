@@ -47,6 +47,21 @@ class GenerationTests(unittest.TestCase):
             "https://www.jobly.fi/en/jobs/uusimaa?search=sustainability&job_geo_location=&Search_jobs=Search+jobs&lat=&lon=&country=&administrative_area_level_1=",
         )
 
+    def test_kuntarekry_uses_fixed_search_url_without_terms(self) -> None:
+        source = SourceDefinition(
+            id="kuntarekry",
+            name="Kuntarekry",
+            enabled=True,
+            search_url_template=(
+                "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858"
+            ),
+        )
+        url = build_search_url(source, "environmental")
+        self.assertEqual(
+            url,
+            "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858",
+        )
+
     def test_source_filtering_uses_enabled_sources_and_ids(self) -> None:
         sources = [
             SourceDefinition(id="jobly", name="Jobly", enabled=True, search_url_template="https://example.com/{query}"),
