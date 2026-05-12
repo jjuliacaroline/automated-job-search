@@ -17,6 +17,8 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertIn("<!DOCTYPE html>", page)
         self.assertIn("Ympäristötieteen alan tehtävät", page)
+        self.assertIn('class="menu-toggle"', page)
+        self.assertIn('class="link-card"', page)
         self.assertIn(
             'href="https://www.jobly.fi/en/jobs/uusimaa?search=environmental%20specialist&amp;job_geo_location=&amp;Search_jobs=Search+jobs&amp;lat=&amp;lon=&amp;country=&amp;administrative_area_level_1="',
             page,
@@ -45,6 +47,7 @@ class WebAppTests(unittest.TestCase):
             raw_keywords="environmental specialist",
         )
         self.assertIn("Kaikki alan tehtävät", page)
+        self.assertIn('class="source-accordion" open', page)
         self.assertEqual(page.count('href="https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa"'), 1)
         self.assertEqual(
             page.count(
@@ -83,3 +86,14 @@ class WebAppTests(unittest.TestCase):
             self.assertNotIn("trainee", page)
             junior_page = render_page(config_dir=config_dir, selected_source_ids=["jobly"], include_junior=True)
             self.assertIn("trainee", junior_page)
+
+    def test_render_page_uses_mobile_breakpoint_for_sidebar_and_accordions(self) -> None:
+        page = render_page(
+            config_dir=None,
+            selected_source_ids=["jobly"],
+            raw_keywords="environmental specialist",
+        )
+        self.assertIn('matchMedia("(max-width: 959px)")', page)
+        self.assertIn('body.sidebar-open .sidebar', page)
+        self.assertIn('accordion.open = false', page)
+        self.assertIn('accordion.open = true', page)
