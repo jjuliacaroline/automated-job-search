@@ -32,22 +32,11 @@ def _split_keywords(raw_keyword: str) -> list[str]:
     return normalize_keywords(keywords)
 
 
-def _link_domain(url: str) -> str:
-    parsed = urlparse(url)
-    host = parsed.netloc.lower()
-    if host.startswith("www."):
-        host = host[4:]
-    return host
-
-
 def _render_link_card(row: GeneratedLink) -> str:
-    domain = _link_domain(row.url)
-    domain_markup = f'<span class="link-domain">{html.escape(domain)}</span>' if domain else ""
     return dedent(
         f"""
         <a class="keyword-chip" href="{html.escape(row.url)}" target="_blank" rel="noreferrer">
           <span class="keyword-chip-label">{html.escape(row.keyword)}</span>
-          {domain_markup}
         </a>
         """
     ).strip()
@@ -495,12 +484,6 @@ def render_page(
             }}
             .keyword-chip-label {{
               white-space: normal;
-            }}
-            .keyword-domain {{
-              color: var(--muted);
-              font-size: 0.7rem;
-              font-variant-caps: all-small-caps;
-              letter-spacing: 0.1em;
             }}
             .chip-toggle {{
               margin-top: 10px;
