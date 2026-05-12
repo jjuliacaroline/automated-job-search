@@ -3,6 +3,7 @@
     "id": "jobly",
     "name": "Jobly",
     "enabled": true,
+    "section_label": "Ympäristötieteen alan tehtävät",
     "search_url_template": "https://www.jobly.fi/en/jobs/uusimaa?search={query}&job_geo_location=&Search_jobs=Search+jobs&lat=&lon=&country=&administrative_area_level_1=",
     "extra_keywords": [
       "päästö",
@@ -32,6 +33,7 @@
     "id": "duunitori",
     "name": "Duunitori",
     "enabled": true,
+    "section_label": "Ympäristötieteen alan tehtävät",
     "search_url_template": "https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku={query}",
     "query_encoding": "plus",
     "extra_keywords": [
@@ -59,11 +61,31 @@
     "notes": "Public search page for the Helsinki, Espoo and Vantaa area with keyword query parameter."
   },
   {
-    "id": "kuntarekry",
-    "name": "Kuntarekry",
+    "id": "jobly-all",
+    "name": "Jobly - Kaikki alan tehtävät",
     "enabled": true,
+    "section_label": "Kaikki alan tehtävät",
+    "display_label": "Enviroment and Sustainability",
+    "search_url_template": "https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa",
+    "notes": "Public Jobly category page for the sustainability job family in Uusimaa."
+  },
+  {
+    "id": "duunitori-all",
+    "name": "Duunitori - Kaikki alan tehtävät",
+    "enabled": true,
+    "section_label": "Kaikki alan tehtävät",
+    "display_label": "Ympäristötieteen alan tehtävät (ala)",
+    "search_url_template": "https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku=ympäristötieteen+alan+tehtävät+%28ala%29",
+    "query_encoding": "plus",
+    "notes": "Public Duunitori category search for the environmental science field."
+  },
+  {
+    "id": "kuntarekry",
+    "name": "Kuntarekry - Kaikki alan tehtävät",
+    "enabled": true,
+    "section_label": "Kaikki alan tehtävät",
     "display_label": "Ympäristöala",
-    "search_url_template": "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858",
-    "notes": "Public municipal search page for the selected location set."
+    "search_url_template": "https://www.kuntarekry.fi/fi/tyopaikat-tehtavan-mukaan/tekninen-ala/ymparistoala/",
+    "notes": "Public municipal category page for environmental jobs."
   }
 ]

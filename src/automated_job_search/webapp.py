@@ -19,6 +19,10 @@ from .config import (
 from .generation import GeneratedLink, filter_sources, generate_links, normalize_keywords
 
 
+def _source_section_label(source: SourceDefinition) -> str:
+    return source.section_label or "Sources"
+
+
 def _split_keywords(raw_keyword: str) -> list[str]:
     keywords: list[str] = []
     for part in raw_keyword.replace(",", "\n").splitlines():
@@ -26,6 +30,16 @@ def _split_keywords(raw_keyword: str) -> list[str]:
         if cleaned:
             keywords.append(cleaned)
     return normalize_keywords(keywords)
+
+
+def _render_link_card(row: GeneratedLink) -> str:
+    return dedent(
+        f"""
+        <a class="keyword-chip" href="{html.escape(row.url)}" target="_blank" rel="noreferrer">
+          <span class="keyword-chip-label">{html.escape(row.keyword)}</span>
+        </a>
+        """
+    ).strip()
 
 
 def _page_data(
@@ -48,9 +62,18 @@ def _page_data(
     grouped_rows: dict[str, list[GeneratedLink]] = defaultdict(list)
     for row in rows:
         grouped_rows[row.source_id].append(row)
+    grouped_sources: dict[str, list[SourceDefinition]] = defaultdict(list)
+    section_order: list[str] = []
+    for source in enabled_sources:
+        section_label = _source_section_label(source)
+        if section_label not in grouped_sources:
+            section_order.append(section_label)
+        grouped_sources[section_label].append(source)
     return {
         "keyword_groups": keyword_groups,
         "enabled_sources": enabled_sources,
+        "grouped_sources": dict(grouped_sources),
+        "section_order": section_order,
         "keywords": selected_keywords,
         "raw_keywords": raw_keywords,
         "rows": rows,
@@ -74,59 +97,88 @@ def render_page(
         raw_keywords=raw_keywords,
         include_junior=include_junior,
     )
-    enabled_sources: list[SourceDefinition] = data["enabled_sources"]
     grouped_rows: dict[str, list[GeneratedLink]] = data["grouped_rows"]
     selected_ids: set[str] = data["selected_source_ids"]
+    grouped_sources: dict[str, list[SourceDefinition]] = data["grouped_sources"]
+    section_order: list[str] = data["section_order"]
     keywords: list[str] = data["keywords"]
     escaped_keywords = html.escape(data["raw_keywords"])
     keyword_groups: KeywordGroups = data["keyword_groups"]
     primary_keywords_preview = ", ".join(keyword_groups.primary[:6])
     junior_count = len(keyword_groups.junior)
-    cards: list[str] = []
+    result_sections: list[str] = []
+    source_option_sections: list[str] = []
 
-    for source in enabled_sources:
-        if source.id not in selected_ids:
-            continue
-        source_rows = grouped_rows.get(source.id, [])
-        links_markup = "\n".join(
-            (
-                f'<li><a href="{html.escape(row.url)}" target="_blank" rel="noreferrer">{html.escape(row.keyword)}</a>'
-                f'<span>{html.escape(row.url)}</span></li>'
+    for section_label in section_order:
+        section_sources = grouped_sources.get(section_label, [])
+        section_cards: list[str] = []
+        section_options: list[str] = []
+        for source in section_sources:
+            section_options.append(
+                f'<label class="source-option"><input type="checkbox" name="source" value="{html.escape(source.id)}"'
+                f' {"checked" if source.id in selected_ids else ""}>'
+                f'<span>{html.escape(source.name)}</span></label>'
             )
-            for row in source_rows
-        )
-        notes = f'<p class="source-notes">{html.escape(source.notes)}</p>' if source.notes else ""
-        cards.append(
-            dedent(
-                f"""
-                <section class="result-card">
-                  <div class="card-header">
-                    <div>
-                      <p class="eyebrow">{html.escape(source.id)}</p>
-                      <h2>{html.escape(source.name)}</h2>
-                    </div>
-                    <span class="pill">{len(source_rows)} links</span>
-                  </div>
-                  {notes}
-                  <ul class="link-list">
-                    {links_markup}
-                  </ul>
-                </section>
-                """
-            ).strip()
-        )
+            if source.id not in selected_ids:
+                continue
+            source_rows = grouped_rows.get(source.id, [])
+            links_markup = "\n".join(_render_link_card(row) for row in source_rows)
+            notes = f'<p class="source-notes">{html.escape(source.notes)}</p>' if source.notes else ""
+            chip_list_id = f"chip-list-{html.escape(source.id)}"
+            section_cards.append(
+                dedent(
+                    f"""
+                    <details class="source-accordion" open>
+                      <summary>
+                        <span class="accordion-title">{html.escape(source.name)}</span>
+                        <span class="accordion-count">{len(source_rows)} links</span>
+                      </summary>
+                      {notes}
+                      <div class="chip-shell">
+                        <div class="chip-list" id="{chip_list_id}">
+                          {links_markup}
+                        </div>
+                        <button class="chip-toggle" type="button" aria-controls="{chip_list_id}" hidden></button>
+                      </div>
+                    </details>
+                    """
+                ).strip()
+            )
+        if section_cards:
+            result_sections.append(
+                dedent(
+                    f"""
+                    <section class="result-section">
+                      <p class="section-title">{html.escape(section_label)}</p>
+                      <div class="accordion-stack">
+                        {"\n".join(section_cards)}
+                      </div>
+                    </section>
+                    """
+                ).strip()
+            )
+        if section_options:
+            source_option_sections.append(
+                dedent(
+                    f"""
+                    <section class="source-section">
+                      <p class="section-title">{html.escape(section_label)}</p>
+                      <div class="source-grid">
+                        {"\n".join(section_options)}
+                      </div>
+                    </section>
+                    """
+                ).strip()
+            )
 
-    source_options = "\n".join(
-        (
-            f'<label class="source-option"><input type="checkbox" name="source" value="{html.escape(source.id)}"'
-            f' {"checked" if source.id in selected_ids else ""}>'
-            f'<span>{html.escape(source.name)}</span></label>'
-        )
-        for source in enabled_sources
-    )
     error_banner = f'<div class="error-banner">{html.escape(error_message)}</div>' if error_message else ""
     selected_count = len(selected_ids)
-    page_body = "\n".join(cards) if cards else '<section class="empty-state">No links matched the current filters.</section>'
+    page_body = (
+        "\n".join(result_sections)
+        if result_sections
+        else '<section class="empty-state">No links matched the current filters.</section>'
+    )
+    source_options = "\n".join(source_option_sections)
 
     return dedent(
         f"""
@@ -138,79 +190,114 @@ def render_page(
           <title>Finland Environmental Jobs</title>
           <style>
             :root {{
-              --bg: #f3efe6;
-              --panel: rgba(255, 252, 247, 0.92);
-              --ink: #1f3027;
-              --muted: #617166;
-              --accent: #146356;
-              --accent-soft: #d7efe5;
-              --line: rgba(31, 48, 39, 0.12);
-              --shadow: 0 18px 45px rgba(20, 43, 31, 0.08);
+              --primary: #005C4D;
+              --accent: #0F766E;
+              --surface: #F7F1E6;
+              --surface-strong: #EFE5D2;
+              --bg: #F5F0E7;
+              --ink: #18302B;
+              --muted: #607169;
+              --line: rgba(24, 48, 43, 0.12);
+              --shadow: 0 18px 45px rgba(18, 43, 38, 0.08);
             }}
             * {{ box-sizing: border-box; }}
             body {{
               margin: 0;
-              font-family: Georgia, "Times New Roman", serif;
+              font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
               color: var(--ink);
               background:
-                radial-gradient(circle at top left, rgba(20, 99, 86, 0.12), transparent 30%),
+                radial-gradient(circle at top left, rgba(0, 92, 77, 0.12), transparent 30%),
                 linear-gradient(180deg, #fcfaf6 0%, var(--bg) 100%);
+            }}
+            h1, h2, .section-title, .accordion-title {{
+              font-family: Georgia, "Times New Roman", serif;
             }}
             a {{ color: var(--accent); }}
             .shell {{
               max-width: 1200px;
               margin: 0 auto;
-              padding: 32px 20px 48px;
+              padding: 20px 20px 40px;
             }}
             .hero {{
-              padding: 28px;
-              border-radius: 28px;
-              background: linear-gradient(135deg, rgba(255, 252, 247, 0.95), rgba(222, 241, 230, 0.92));
-              box-shadow: var(--shadow);
-              border: 1px solid rgba(20, 99, 86, 0.12);
+              padding: 18px 20px 20px;
+              border-radius: 0;
+              background: var(--primary);
+              color: white;
+            }}
+            .hero-top {{
+              display: flex;
+              align-items: flex-start;
+              justify-content: space-between;
+              gap: 16px;
             }}
             .hero h1 {{
               margin: 0;
-              font-size: clamp(2.2rem, 5vw, 4.5rem);
+              font-size: clamp(2.1rem, 5vw, 4.4rem);
               line-height: 0.95;
               letter-spacing: -0.05em;
             }}
-            .hero p {{
-              max-width: 70ch;
-              margin: 14px 0 0;
-              color: var(--muted);
+            .hero-copy {{
+              max-width: 72ch;
+              margin: 12px 0 0;
+              color: rgba(255, 255, 255, 0.82);
               font-size: 1.02rem;
             }}
             .stats {{
               display: flex;
-              flex-wrap: wrap;
+              flex-wrap: nowrap;
               gap: 12px;
-              margin-top: 18px;
+              margin-top: 14px;
+              overflow-x: auto;
+              padding-bottom: 2px;
             }}
             .stat {{
               padding: 10px 14px;
               border-radius: 999px;
-              background: rgba(255, 255, 255, 0.7);
-              border: 1px solid var(--line);
+              background: rgba(255, 255, 255, 0.14);
+              border: 1px solid rgba(255, 255, 255, 0.16);
+              color: white;
               font-size: 0.95rem;
+              white-space: nowrap;
+            }}
+            .menu-toggle {{
+              display: none;
+              align-items: center;
+              gap: 8px;
+              padding: 10px 14px;
+              border-radius: 999px;
+              border: 1px solid rgba(255, 255, 255, 0.18);
+              color: white;
+              background: rgba(255, 255, 255, 0.08);
+            }}
+            .menu-toggle svg {{
+              width: 18px;
+              height: 18px;
             }}
             .layout {{
               display: grid;
               grid-template-columns: 320px minmax(0, 1fr);
               gap: 20px;
-              margin-top: 22px;
+              margin-top: 18px;
             }}
             .panel {{
-              background: var(--panel);
+              background: var(--surface);
               border: 1px solid var(--line);
               border-radius: 24px;
               box-shadow: var(--shadow);
             }}
-            .controls {{
-              padding: 20px;
+            .sidebar {{
               position: sticky;
-              top: 20px;
+              top: 16px;
               align-self: start;
+              display: grid;
+              gap: 14px;
+            }}
+            .sidebar-form {{
+              display: grid;
+              gap: 14px;
+            }}
+            .controls {{
+              padding: 18px;
             }}
             .results {{
               padding: 20px;
@@ -221,6 +308,7 @@ def render_page(
               text-transform: uppercase;
               letter-spacing: 0.14em;
               color: var(--muted);
+              font-weight: 600;
             }}
             textarea {{
               width: 100%;
@@ -245,13 +333,24 @@ def render_page(
               margin-top: 12px;
               padding: 12px 14px;
               border-radius: 16px;
-              background: white;
+              background: rgba(255, 255, 255, 0.65);
               border: 1px solid var(--line);
+            }}
+            .control-card {{
+              padding: 16px;
+              border-radius: 20px;
+              background: var(--surface-strong);
+              border: 1px solid rgba(24, 48, 43, 0.08);
+            }}
+            .control-card + .control-card {{
+              margin-top: 14px;
             }}
             .source-grid {{
               display: grid;
               gap: 10px;
-              margin-top: 10px;
+            }}
+            .source-section + .source-section {{
+              margin-top: 18px;
             }}
             .source-option {{
               display: flex;
@@ -268,7 +367,11 @@ def render_page(
             .actions {{
               display: flex;
               gap: 10px;
-              margin-top: 18px;
+              margin-top: 6px;
+              position: sticky;
+              bottom: 0;
+              padding-top: 12px;
+              background: linear-gradient(180deg, rgba(247, 241, 230, 0), rgba(247, 241, 230, 0.92) 18px, rgba(247, 241, 230, 0.98));
             }}
             button {{
               border: 0;
@@ -301,65 +404,101 @@ def render_page(
               display: grid;
               gap: 16px;
             }}
-            .result-card {{
-              padding: 18px;
+            .result-section {{
+              display: grid;
+              gap: 12px;
+            }}
+            .accordion-stack {{
+              display: grid;
+              gap: 12px;
+            }}
+            .source-accordion {{
               border-radius: 20px;
               background: white;
               border: 1px solid var(--line);
+              overflow: clip;
             }}
-            .card-header {{
+            .source-accordion summary {{
+              list-style: none;
               display: flex;
+              align-items: center;
               justify-content: space-between;
-              gap: 12px;
-              align-items: start;
+              gap: 14px;
+              padding: 16px 18px;
+              cursor: pointer;
             }}
-            .card-header h2 {{
-              margin: 2px 0 0;
-              font-size: 1.5rem;
+            .source-accordion summary::-webkit-details-marker {{
+              display: none;
             }}
-            .eyebrow {{
+            .accordion-title {{
               margin: 0;
-              text-transform: uppercase;
-              letter-spacing: 0.12em;
-              font-size: 0.78rem;
-              color: var(--muted);
+              font-size: 1.22rem;
+              line-height: 1.1;
+              font-weight: 700;
             }}
-            .pill {{
+            .accordion-count {{
               white-space: nowrap;
               border-radius: 999px;
-              padding: 8px 12px;
-              background: var(--accent-soft);
+              padding: 7px 11px;
+              background: var(--surface);
               color: var(--accent);
-              font-size: 0.9rem;
+              font-size: 0.88rem;
+              font-weight: 600;
             }}
             .source-notes {{
-              margin: 12px 0 0;
+              margin: 0 18px 10px;
               color: var(--muted);
             }}
-            .link-list {{
-              list-style: none;
-              margin: 16px 0 0;
-              padding: 0;
+            .chip-shell {{
+              padding: 0 18px 18px;
+            }}
+            .chip-list {{
               display: grid;
               gap: 10px;
+              display: flex;
+              flex-wrap: wrap;
+              gap: 0.5rem;
+              max-height: 96px;
+              overflow: hidden;
             }}
-            .link-list li {{
-              padding: 12px 14px;
-              border-radius: 16px;
-              background: #f8f6f1;
-              border: 1px solid rgba(31, 48, 39, 0.08);
+            .chip-shell.is-expanded .chip-list {{
+              max-height: none;
+              overflow: visible;
             }}
-            .link-list a {{
+            .keyword-chip {{
+              display: inline-flex;
+              align-items: center;
+              gap: 8px;
+              padding: 0.4rem 0.7rem;
+              border-radius: 999px;
+              background: rgba(15, 118, 110, 0.1);
+              color: var(--accent);
               text-decoration: none;
-              font-weight: 700;
-              font-size: 1rem;
+              font-size: 0.88rem;
+              font-weight: 600;
+              line-height: 1;
+              transition: background-color 120ms ease;
             }}
-            .link-list span {{
-              display: block;
-              margin-top: 6px;
-              color: var(--muted);
-              font-size: 0.9rem;
-              word-break: break-all;
+            .keyword-chip:hover {{
+              background: rgba(15, 118, 110, 0.16);
+            }}
+            .keyword-chip-label {{
+              white-space: normal;
+            }}
+            .chip-toggle {{
+              margin-top: 10px;
+              display: none;
+              border: 0;
+              background: transparent;
+              color: var(--accent);
+              font: inherit;
+              font-size: 0.92rem;
+              font-weight: 600;
+              cursor: pointer;
+              padding: 0;
+            }}
+            .chip-shell.is-overflowing .chip-toggle {{
+              display: inline-flex;
             }}
             .empty-state {{
               padding: 24px;
@@ -368,12 +507,43 @@ def render_page(
               border: 1px dashed var(--line);
               color: var(--muted);
             }}
-            @media (max-width: 920px) {{
+            @media (max-width: 959px) {{
+              .menu-toggle {{
+                display: inline-flex;
+              }}
               .layout {{
                 grid-template-columns: 1fr;
               }}
-              .controls {{
+              .sidebar {{
                 position: static;
+                display: none;
+              }}
+              body.sidebar-open .sidebar {{
+                display: grid;
+              }}
+              .hero-top {{
+                align-items: center;
+              }}
+              .hero-copy {{
+                max-width: none;
+              }}
+              .source-accordion summary {{
+                align-items: flex-start;
+                flex-direction: column;
+              }}
+            }}
+            @media (max-width: 640px) {{
+              .shell {{
+                padding-inline: 12px;
+              }}
+              .hero {{
+                padding-inline: 14px;
+              }}
+              .controls, .results {{
+                padding: 16px;
+              }}
+              .actions {{
+                flex-direction: row;
               }}
             }}
           </style>
@@ -381,8 +551,16 @@ def render_page(
         <body>
           <main class="shell">
             <section class="hero">
-              <h1>Finland<br>Environmental Jobs</h1>
-              <p>
+              <div class="hero-top">
+                <h1>Finland<br>Environmental Jobs</h1>
+                <button class="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false">
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                    <path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"></path>
+                  </svg>
+                  <span>Filters</span>
+                </button>
+              </div>
+              <p class="hero-copy">
                 A browser view over the existing link generator. It still produces public search URLs, but the results are easier to scan, filter, and open in new tabs.
               </p>
               <div class="stats">
@@ -392,21 +570,23 @@ def render_page(
               </div>
             </section>
             <div class="layout">
-              <aside class="panel controls">
-                <form method="get" action="/">
-                  <p class="section-title">Keywords</p>
-                  <textarea name="keywords" placeholder="One keyword per line">{escaped_keywords}</textarea>
-                  <p class="hint">Leave blank to use defaults. Main keywords start with: {html.escape(primary_keywords_preview)}</p>
-                  <label class="toggle-row">
-                    <input type="checkbox" name="include_junior" {"checked" if include_junior else ""}>
-                    <span>Include junior keywords as an extra group ({junior_count})</span>
-                  </label>
-                  <p class="section-title" style="margin-top: 22px;">Sources</p>
-                  <div class="source-grid">
+              <aside class="sidebar" id="sidebar">
+                <form method="get" action="/" class="sidebar-form">
+                  <section class="control-card panel controls">
+                    <p class="section-title">Keywords</p>
+                    <textarea name="keywords" placeholder="One keyword per line">{escaped_keywords}</textarea>
+                    <p class="hint">Leave blank to use defaults. Main keywords start with: {html.escape(primary_keywords_preview)}</p>
+                    <label class="toggle-row">
+                      <input type="checkbox" name="include_junior" {"checked" if include_junior else ""}>
+                      <span>Include junior keywords as an extra group ({junior_count})</span>
+                    </label>
+                  </section>
+                  <section class="control-card panel controls">
+                    <p class="section-title">Sources</p>
                     {source_options}
-                  </div>
+                  </section>
                   <div class="actions">
-                    <button type="submit">Refresh Results</button>
+                    <button type="submit">Refresh</button>
                     <a class="ghost-link" href="/">Reset</a>
                   </div>
                 </form>
@@ -419,6 +599,99 @@ def render_page(
               </section>
             </div>
           </main>
+          <script>
+            (function() {{
+              const mq = window.matchMedia("(max-width: 959px)");
+              const body = document.body;
+              const toggle = document.querySelector(".menu-toggle");
+              const accordions = Array.from(document.querySelectorAll(".source-accordion"));
+              const chipToggles = Array.from(document.querySelectorAll(".chip-toggle"));
+              const chipShells = Array.from(document.querySelectorAll(".chip-shell"));
+
+              function syncLayout() {{
+                const isMobile = mq.matches;
+                if (isMobile) {{
+                  accordions.forEach((accordion) => {{
+                    accordion.open = false;
+                  }});
+                  if (toggle) {{
+                    toggle.setAttribute("aria-expanded", String(body.classList.contains("sidebar-open")));
+                  }}
+                }} else {{
+                  body.classList.remove("sidebar-open");
+                  accordions.forEach((accordion) => {{
+                    accordion.open = true;
+                  }});
+                  if (toggle) {{
+                    toggle.setAttribute("aria-expanded", "false");
+                  }}
+                }}
+              }}
+
+              if (toggle) {{
+                toggle.addEventListener("click", () => {{
+                  if (!mq.matches) {{
+                    return;
+                  }}
+                  const nextOpen = !body.classList.contains("sidebar-open");
+                  body.classList.toggle("sidebar-open", nextOpen);
+                  toggle.setAttribute("aria-expanded", String(nextOpen));
+                }});
+              }}
+
+              function syncChips() {{
+                chipShells.forEach((shell) => {{
+                  const list = shell.querySelector(".chip-list"); // Measure the wrapper that clips chip rows.
+                  const chipToggle = shell.querySelector(".chip-toggle");
+                  if (!list || !chipToggle) {{
+                    return;
+                  }}
+                  const overflowing = list.scrollHeight > 96;
+                  shell.classList.toggle("is-overflowing", overflowing);
+                  if (!overflowing) {{
+                    shell.classList.remove("is-expanded");
+                    chipToggle.hidden = true;
+                    chipToggle.setAttribute("aria-expanded", "false");
+                    chipToggle.textContent = "";
+                    return;
+                  }}
+                  chipToggle.hidden = false;
+                  chipToggle.setAttribute("aria-expanded", "false");
+                  chipToggle.textContent = "+ Show all";
+                  if (chipToggle.getAttribute("aria-expanded") !== "true") {{
+                    chipToggle.textContent = "+ Show all";
+                  }}
+                }});
+              }}
+
+              chipToggles.forEach((chipToggle) => {{
+                chipToggle.addEventListener("click", () => {{
+                  const shell = chipToggle.closest(".chip-shell"); // Keep the toggle scoped to its source card.
+                  if (!shell || !shell.classList.contains("is-overflowing")) {{
+                    return;
+                  }}
+                  const expanded = chipToggle.getAttribute("aria-expanded") === "true";
+                  shell.classList.toggle("is-expanded", !expanded);
+                  chipToggle.setAttribute("aria-expanded", String(!expanded));
+                  chipToggle.textContent = expanded ? "+ Show all" : "– Hide";
+                }});
+              }});
+
+              if (mq.addEventListener) {{
+                mq.addEventListener("change", () => {{
+                  syncLayout();
+                  syncChips();
+                }});
+              }} else if (mq.addListener) {{
+                mq.addListener(() => {{
+                  syncLayout();
+                  syncChips();
+                }});
+              }}
+              syncLayout();
+              syncChips();
+            }})();
+          </script>
         </body>
         </html>
         """
