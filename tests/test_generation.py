@@ -52,6 +52,7 @@ class GenerationTests(unittest.TestCase):
             id="kuntarekry",
             name="Kuntarekry",
             enabled=True,
+            display_label="Ympäristöala",
             search_url_template=(
                 "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858"
             ),
@@ -61,6 +62,45 @@ class GenerationTests(unittest.TestCase):
             url,
             "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858",
         )
+
+    def test_fixed_sources_generate_a_single_labelled_link(self) -> None:
+        source = SourceDefinition(
+            id="kuntarekry",
+            name="Kuntarekry",
+            enabled=True,
+            display_label="Ympäristöala",
+            search_url_template="https://www.kuntarekry.fi/fi/tyopaikat/?&location=1&profession=2",
+        )
+        rows = generate_links([source], ["environmental", "sustainability"])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].keyword, "Ympäristöala")
+        self.assertEqual(rows[0].url, "https://www.kuntarekry.fi/fi/tyopaikat/?&location=1&profession=2")
+
+    def test_source_specific_extra_keywords_are_appended_and_deduped(self) -> None:
+        source = SourceDefinition(
+            id="duunitori",
+            name="Duunitori",
+            enabled=True,
+            search_url_template="https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku={query}",
+            query_encoding="plus",
+            extra_keywords=["päästö", "kiertotalous", "päästö"],
+        )
+        rows = generate_links([source], ["environmental", "kiertotalous"])
+        self.assertEqual([row.keyword for row in rows], ["environmental", "kiertotalous", "päästö"])
+
+    def test_jobly_uses_the_same_extra_keywords(self) -> None:
+        source = SourceDefinition(
+            id="jobly",
+            name="Jobly",
+            enabled=True,
+            search_url_template=(
+                "https://www.jobly.fi/en/jobs/uusimaa?search={query}"
+                "&job_geo_location=&Search_jobs=Search+jobs&lat=&lon=&country=&administrative_area_level_1="
+            ),
+            extra_keywords=["päästö", "kiertotalous"],
+        )
+        rows = generate_links([source], ["environmental"])
+        self.assertEqual([row.keyword for row in rows], ["environmental", "päästö", "kiertotalous"])
 
     def test_source_filtering_uses_enabled_sources_and_ids(self) -> None:
         sources = [

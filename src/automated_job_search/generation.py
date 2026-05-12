@@ -59,7 +59,18 @@ def generate_links(
 ) -> list[GeneratedLink]:
     rows: list[GeneratedLink] = []
     for source in sources:
-        for keyword in keywords:
+        combined_keywords = normalize_keywords(keywords + (source.extra_keywords or []))
+        if "{query}" not in source.url_template:
+            rows.append(
+                GeneratedLink(
+                    source_id=source.id,
+                    source_name=source.name,
+                    keyword=source.display_label or source.name,
+                    url=build_search_url(source, ""),
+                )
+            )
+            continue
+        for keyword in combined_keywords:
             rows.append(
                 GeneratedLink(
                     source_id=source.id,

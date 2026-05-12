@@ -11,9 +11,11 @@ class SourceDefinition:
     id: str
     name: str
     enabled: bool
+    display_label: str | None = None
     search_url_template: str | None = None
     base_url: str | None = None
     query_encoding: str | None = None
+    extra_keywords: list[str] | None = None
     notes: str | None = None
 
     @property
@@ -100,14 +102,18 @@ def load_sources(path: Path) -> list[SourceDefinition]:
         source_id = item.get("id")
         name = item.get("name")
         enabled = item.get("enabled")
+        display_label = item.get("display_label")
         search_url_template = item.get("search_url_template")
         base_url = item.get("base_url")
         query_encoding = item.get("query_encoding")
+        extra_keywords = item.get("extra_keywords")
         notes = item.get("notes")
         if not isinstance(source_id, str) or not source_id.strip():
             raise ValueError("Each source must include a non-empty string id")
         if not isinstance(name, str) or not name.strip():
             raise ValueError(f"Source {source_id!r} must include a non-empty string name")
+        if not isinstance(display_label, str) and display_label is not None:
+            raise ValueError(f"Source {source_id!r} display_label must be a string if provided")
         if not isinstance(notes, str) and notes is not None:
             raise ValueError(f"Source {source_id!r} notes must be a string if provided")
         if search_url_template is not None and not isinstance(search_url_template, str):
@@ -116,13 +122,19 @@ def load_sources(path: Path) -> list[SourceDefinition]:
             raise ValueError(f"Source {source_id!r} base_url must be a string if provided")
         if query_encoding is not None and not isinstance(query_encoding, str):
             raise ValueError(f"Source {source_id!r} query_encoding must be a string if provided")
+        if extra_keywords is not None and not isinstance(extra_keywords, list):
+            raise ValueError(f"Source {source_id!r} extra_keywords must be a JSON list if provided")
         source = SourceDefinition(
             id=source_id.strip(),
             name=name.strip(),
             enabled=_coerce_bool(enabled, "enabled", source_id),
+            display_label=display_label.strip() if isinstance(display_label, str) else None,
             search_url_template=search_url_template.strip() if isinstance(search_url_template, str) else None,
             base_url=base_url.strip() if isinstance(base_url, str) else None,
             query_encoding=query_encoding.strip() if isinstance(query_encoding, str) else None,
+            extra_keywords=_load_keyword_list(extra_keywords, f"Source {source_id!r} extra_keywords")
+            if isinstance(extra_keywords, list)
+            else None,
             notes=notes.strip() if isinstance(notes, str) else None,
         )
         sources.append(source)

@@ -39,6 +39,8 @@ class ConfigTests(unittest.TestCase):
                     "id": "example",
                     "name": "Example",
                     "enabled": true,
+                    "display_label": "Ympäristöala",
+                    "extra_keywords": ["päästö", "kiertotalous"],
                     "search_url_template": "https://example.com/search?q={query}",
                     "notes": "Demo"
                   }
@@ -51,4 +53,6 @@ class ConfigTests(unittest.TestCase):
             self.assertEqual(sources[0].id, "example")
             self.assertEqual(sources[0].name, "Example")
             self.assertTrue(sources[0].enabled)
+            self.assertEqual(sources[0].display_label, "Ympäristöala")
+            self.assertEqual(sources[0].extra_keywords, ["päästö", "kiertotalous"])
             self.assertIn("{query}", sources[0].url_template)
