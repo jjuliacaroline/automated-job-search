@@ -9,7 +9,10 @@ version = "0.1.0"
 description = "CLI MVP for Finland environmental job search links"
 requires-python = ">=3.11"
 readme = "README.md"
-dependencies = []
+dependencies = [
+  "httpx>=0.27,<1",
+  "python-telegram-bot>=21,<22",
+]
 
 [project.scripts]
 automated-job-search = "automated_job_search.cli:main"

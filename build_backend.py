@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import csv
 import hashlib
+import tomllib
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -17,9 +18,21 @@ REPO_ROOT = Path(__file__).resolve().parent
 SRC_ROOT = REPO_ROOT / "src"
 PACKAGE_ROOT = SRC_ROOT / NORMALIZED_NAME
 ROOT_CONFIG_DIR = REPO_ROOT / "config"
+PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
+
+
+def _project_dependencies() -> list[str]:
+    with PYPROJECT_PATH.open("rb") as handle:
+        payload = tomllib.load(handle)
+    project = payload.get("project", {})
+    dependencies = project.get("dependencies", [])
+    if not isinstance(dependencies, list):
+        raise TypeError("project.dependencies must be a list")
+    return [dependency for dependency in dependencies if isinstance(dependency, str) and dependency.strip()]
 
 
 def _metadata() -> str:
+    dependency_lines = [f"Requires-Dist: {dependency}" for dependency in _project_dependencies()]
     return "\n".join(
         [
             "Metadata-Version: 2.1",
@@ -27,6 +40,7 @@ def _metadata() -> str:
             f"Version: {VERSION}",
             "Summary: CLI MVP for Finland environmental job search links",
             "Requires-Python: >=3.11",
+            *dependency_lines,
             "",
         ]
     )

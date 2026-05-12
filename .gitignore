@@ -26,3 +26,8 @@ coverage.xml
 .DS_Store
 .idea/
 .vscode/
+
+# Local environment secrets
+.env
+
+last_seen_urls.sqlite
