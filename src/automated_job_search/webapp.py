@@ -138,7 +138,7 @@ def render_page(
                         <div class="chip-list" id="{chip_list_id}">
                           {links_markup}
                         </div>
-                        <button class="chip-toggle" type="button" aria-controls="{chip_list_id}" aria-expanded="false">+ Show all</button>
+                        <button class="chip-toggle" type="button" aria-controls="{chip_list_id}" hidden></button>
                       </div>
                     </details>
                     """
@@ -487,6 +487,7 @@ def render_page(
             }}
             .chip-toggle {{
               margin-top: 10px;
+              display: none;
               border: 0;
               background: transparent;
               color: var(--accent);
@@ -495,6 +496,9 @@ def render_page(
               font-weight: 600;
               cursor: pointer;
               padding: 0;
+            }}
+            .chip-shell.is-overflowing .chip-toggle {{
+              display: inline-flex;
             }}
             .empty-state {{
               padding: 24px;
@@ -602,6 +606,7 @@ def render_page(
               const toggle = document.querySelector(".menu-toggle");
               const accordions = Array.from(document.querySelectorAll(".source-accordion"));
               const chipToggles = Array.from(document.querySelectorAll(".chip-toggle"));
+              const chipShells = Array.from(document.querySelectorAll(".chip-shell"));
 
               function syncLayout() {{
                 const isMobile = mq.matches;
@@ -634,10 +639,35 @@ def render_page(
                 }});
               }}
 
+              function syncChips() {{
+                chipShells.forEach((shell) => {{
+                  const list = shell.querySelector(".chip-list"); // Measure the wrapper that clips chip rows.
+                  const chipToggle = shell.querySelector(".chip-toggle");
+                  if (!list || !chipToggle) {{
+                    return;
+                  }}
+                  const overflowing = list.scrollHeight > 96;
+                  shell.classList.toggle("is-overflowing", overflowing);
+                  if (!overflowing) {{
+                    shell.classList.remove("is-expanded");
+                    chipToggle.hidden = true;
+                    chipToggle.setAttribute("aria-expanded", "false");
+                    chipToggle.textContent = "";
+                    return;
+                  }}
+                  chipToggle.hidden = false;
+                  chipToggle.setAttribute("aria-expanded", "false");
+                  chipToggle.textContent = "+ Show all";
+                  if (chipToggle.getAttribute("aria-expanded") !== "true") {{
+                    chipToggle.textContent = "+ Show all";
+                  }}
+                }});
+              }}
+
               chipToggles.forEach((chipToggle) => {{
                 chipToggle.addEventListener("click", () => {{
                   const shell = chipToggle.closest(".chip-shell"); // Keep the toggle scoped to its source card.
-                  if (!shell) {{
+                  if (!shell || !shell.classList.contains("is-overflowing")) {{
                     return;
                   }}
                   const expanded = chipToggle.getAttribute("aria-expanded") === "true";
@@ -648,11 +678,18 @@ def render_page(
               }});
 
               if (mq.addEventListener) {{
-                mq.addEventListener("change", syncLayout);
+                mq.addEventListener("change", () => {{
+                  syncLayout();
+                  syncChips();
+                }});
               }} else if (mq.addListener) {{
-                mq.addListener(syncLayout);
+                mq.addListener(() => {{
+                  syncLayout();
+                  syncChips();
+                }});
               }}
               syncLayout();
+              syncChips();
             }})();
           </script>
         </body>
