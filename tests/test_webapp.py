@@ -18,7 +18,8 @@ class WebAppTests(unittest.TestCase):
         self.assertIn("<!DOCTYPE html>", page)
         self.assertIn("Ympäristötieteen alan tehtävät", page)
         self.assertIn('class="menu-toggle"', page)
-        self.assertIn('class="link-card"', page)
+        self.assertIn('class="keyword-chip"', page)
+        self.assertIn('+ Show all', page)
         self.assertIn(
             'href="https://www.jobly.fi/en/jobs/uusimaa?search=environmental%20specialist&amp;job_geo_location=&amp;Search_jobs=Search+jobs&amp;lat=&amp;lon=&amp;country=&amp;administrative_area_level_1="',
             page,
@@ -48,6 +49,7 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertIn("Kaikki alan tehtävät", page)
         self.assertIn('class="source-accordion" open', page)
+        self.assertIn('aria-expanded="false"', page)
         self.assertEqual(page.count('href="https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa"'), 1)
         self.assertEqual(
             page.count(

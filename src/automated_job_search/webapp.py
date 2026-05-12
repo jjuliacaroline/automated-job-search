@@ -45,18 +45,10 @@ def _render_link_card(row: GeneratedLink) -> str:
     domain_markup = f'<span class="link-domain">{html.escape(domain)}</span>' if domain else ""
     return dedent(
         f"""
-        <article class="link-card">
-          <div class="link-card-copy">
-            <span class="link-label">{html.escape(row.keyword)}</span>
-            {domain_markup}
-          </div>
-          <a class="open-link" href="{html.escape(row.url)}" target="_blank" rel="noreferrer">
-            <span>Open</span>
-            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-              <path d="M7 5.5h7.5V13m0-7.5L6 14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-          </a>
-        </article>
+        <a class="keyword-chip" href="{html.escape(row.url)}" target="_blank" rel="noreferrer">
+          <span class="keyword-chip-label">{html.escape(row.keyword)}</span>
+          {domain_markup}
+        </a>
         """
     ).strip()
 
@@ -143,6 +135,7 @@ def render_page(
             source_rows = grouped_rows.get(source.id, [])
             links_markup = "\n".join(_render_link_card(row) for row in source_rows)
             notes = f'<p class="source-notes">{html.escape(source.notes)}</p>' if source.notes else ""
+            chip_list_id = f"chip-list-{html.escape(source.id)}"
             section_cards.append(
                 dedent(
                     f"""
@@ -152,8 +145,11 @@ def render_page(
                         <span class="accordion-count">{len(source_rows)} links</span>
                       </summary>
                       {notes}
-                      <div class="link-grid">
-                        {links_markup}
+                      <div class="chip-shell">
+                        <div class="chip-list" id="{chip_list_id}">
+                          {links_markup}
+                        </div>
+                        <button class="chip-toggle" type="button" aria-controls="{chip_list_id}" aria-expanded="false">+ Show all</button>
                       </div>
                     </details>
                     """
@@ -464,60 +460,58 @@ def render_page(
               margin: 0 18px 10px;
               color: var(--muted);
             }}
-            .link-grid {{
-              display: grid;
-              gap: 10px;
+            .chip-shell {{
               padding: 0 18px 18px;
             }}
-            .link-card {{
+            .chip-list {{
+              display: grid;
+              gap: 10px;
               display: flex;
+              flex-wrap: wrap;
+              gap: 0.5rem;
+              max-height: 96px;
+              overflow: hidden;
+            }}
+            .chip-shell.is-expanded .chip-list {{
+              max-height: none;
+              overflow: visible;
+            }}
+            .keyword-chip {{
+              display: inline-flex;
               align-items: center;
-              justify-content: space-between;
-              gap: 14px;
-              padding: 12px 14px;
-              border-radius: 16px;
-              background: #F8F6F1;
-              border: 1px solid rgba(24, 48, 43, 0.08);
-            }}
-            .link-card-copy {{
-              min-width: 0;
-            }}
-            .link-label {{
-              display: inline-block;
-              color: var(--ink);
-              text-decoration: none;
-              font-family: Georgia, "Times New Roman", serif;
-              font-size: 1.02rem;
-              font-weight: 700;
-              line-height: 1.2;
-            }}
-            .link-label:hover {{
+              gap: 8px;
+              padding: 0.4rem 0.7rem;
+              border-radius: 999px;
+              background: rgba(15, 118, 110, 0.1);
               color: var(--accent);
+              text-decoration: none;
+              font-size: 0.88rem;
+              font-weight: 600;
+              line-height: 1;
+              transition: background-color 120ms ease;
             }}
-            .link-domain {{
-              display: block;
-              margin-top: 4px;
+            .keyword-chip:hover {{
+              background: rgba(15, 118, 110, 0.16);
+            }}
+            .keyword-chip-label {{
+              white-space: normal;
+            }}
+            .keyword-domain {{
               color: var(--muted);
-              font-size: 0.78rem;
+              font-size: 0.7rem;
               font-variant-caps: all-small-caps;
               letter-spacing: 0.1em;
             }}
-            .open-link {{
-              display: inline-flex;
-              align-items: center;
-              gap: 6px;
-              flex: 0 0 auto;
-              padding: 10px 14px;
-              border-radius: 999px;
-              background: var(--accent);
-              color: white;
-              text-decoration: none;
+            .chip-toggle {{
+              margin-top: 10px;
+              border: 0;
+              background: transparent;
+              color: var(--accent);
+              font: inherit;
               font-size: 0.92rem;
               font-weight: 600;
-            }}
-            .open-link svg {{
-              width: 16px;
-              height: 16px;
+              cursor: pointer;
+              padding: 0;
             }}
             .empty-state {{
               padding: 24px;
@@ -549,13 +543,6 @@ def render_page(
               .source-accordion summary {{
                 align-items: flex-start;
                 flex-direction: column;
-              }}
-              .link-card {{
-                align-items: flex-start;
-                flex-direction: column;
-              }}
-              .open-link {{
-                align-self: flex-start;
               }}
             }}
             @media (max-width: 640px) {{
@@ -631,6 +618,7 @@ def render_page(
               const body = document.body;
               const toggle = document.querySelector(".menu-toggle");
               const accordions = Array.from(document.querySelectorAll(".source-accordion"));
+              const chipToggles = Array.from(document.querySelectorAll(".chip-toggle"));
 
               function syncLayout() {{
                 const isMobile = mq.matches;
@@ -662,6 +650,19 @@ def render_page(
                   toggle.setAttribute("aria-expanded", String(nextOpen));
                 }});
               }}
+
+              chipToggles.forEach((chipToggle) => {{
+                chipToggle.addEventListener("click", () => {{
+                  const shell = chipToggle.closest(".chip-shell"); // Keep the toggle scoped to its source card.
+                  if (!shell) {{
+                    return;
+                  }}
+                  const expanded = chipToggle.getAttribute("aria-expanded") === "true";
+                  shell.classList.toggle("is-expanded", !expanded);
+                  chipToggle.setAttribute("aria-expanded", String(!expanded));
+                  chipToggle.textContent = expanded ? "+ Show all" : "– Hide";
+                }});
+              }});
 
               if (mq.addEventListener) {{
                 mq.addEventListener("change", syncLayout);
