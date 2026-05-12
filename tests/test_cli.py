@@ -110,6 +110,45 @@ class CliTests(unittest.TestCase):
             self.assertIn("environmental", output)
             self.assertIn("trainee", output)
 
+    def test_generate_fixed_all_jobs_sources_stay_single_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            self._write_keyword_config(config_dir, primary=["environmental", "sustainability"], junior=["trainee"])
+            (config_dir / "sources.json").write_text(
+                """
+                [
+                  {
+                    "id": "jobly-all",
+                    "name": "Jobly - Kaikki alan tehtävät",
+                    "enabled": true,
+                    "section_label": "Kaikki alan tehtävät",
+                    "display_label": "Enviroment and Sustainability",
+                    "search_url_template": "https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa"
+                  },
+                  {
+                    "id": "duunitori-all",
+                    "name": "Duunitori - Kaikki alan tehtävät",
+                    "enabled": true,
+                    "section_label": "Kaikki alan tehtävät",
+                    "display_label": "Ympäristötieteen alan tehtävät (ala)",
+                    "search_url_template": "https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku=ympäristötieteen+alan+tehtävät+%28ala%29"
+                  }
+                ]
+                """,
+                encoding="utf-8",
+            )
+            stdout = io.StringIO()
+            exit_code = main(
+                ["generate", "--source", "jobly-all", "--source", "duunitori-all"],
+                config_dir=config_dir,
+                stdout=stdout,
+            )
+            self.assertEqual(exit_code, 0)
+            output = stdout.getvalue().splitlines()
+            self.assertEqual(len(output), 3)
+            self.assertIn("Enviroment and Sustainability", stdout.getvalue())
+            self.assertIn("Ympäristötieteen alan tehtävät (ala)", stdout.getvalue())
+
     def test_open_limit_zero_is_safe(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)

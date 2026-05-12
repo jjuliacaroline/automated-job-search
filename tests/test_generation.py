@@ -63,6 +63,49 @@ class GenerationTests(unittest.TestCase):
             "https://www.kuntarekry.fi/fi/tyopaikat/?&location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&profession=38858",
         )
 
+    def test_fixed_all_jobs_urls_are_returned_verbatim(self) -> None:
+        sources = [
+            SourceDefinition(
+                id="jobly-all",
+                name="Jobly - Kaikki alan tehtävät",
+                enabled=True,
+                section_label="Kaikki alan tehtävät",
+                display_label="Enviroment and Sustainability",
+                search_url_template="https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa",
+            ),
+            SourceDefinition(
+                id="duunitori-all",
+                name="Duunitori - Kaikki alan tehtävät",
+                enabled=True,
+                section_label="Kaikki alan tehtävät",
+                display_label="Ympäristötieteen alan tehtävät (ala)",
+                search_url_template="https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku=ympäristötieteen+alan+tehtävät+%28ala%29",
+                query_encoding="plus",
+            ),
+            SourceDefinition(
+                id="kuntarekry",
+                name="Kuntarekry - Kaikki alan tehtävät",
+                enabled=True,
+                section_label="Kaikki alan tehtävät",
+                display_label="Ympäristöala",
+                search_url_template="https://www.kuntarekry.fi/fi/tyopaikat-tehtavan-mukaan/tekninen-ala/ymparistoala/",
+            ),
+        ]
+        rows = generate_links(sources, ["environmental", "sustainability"])
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(
+            [row.keyword for row in rows],
+            ["Enviroment and Sustainability", "Ympäristötieteen alan tehtävät (ala)", "Ympäristöala"],
+        )
+        self.assertEqual(
+            [row.url for row in rows],
+            [
+                "https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa",
+                "https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&haku=ympäristötieteen+alan+tehtävät+%28ala%29",
+                "https://www.kuntarekry.fi/fi/tyopaikat-tehtavan-mukaan/tekninen-ala/ymparistoala/",
+            ],
+        )
+
     def test_fixed_sources_generate_a_single_labelled_link(self) -> None:
         source = SourceDefinition(
             id="kuntarekry",

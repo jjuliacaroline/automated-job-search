@@ -93,6 +93,11 @@ Sources are currently:
 
 If you want to change keywords or add/remove sources, edit those JSON files instead of the Python modules.
 
+The browser UI now groups results into two top-level sections:
+
+- `Ympäristötieteen alan tehtävät` for the keyword-driven search links
+- `Kaikki alan tehtävät` for the fixed public category links
+
 The keyword config is split into two groups:
 
 - `primary`: the default search terms

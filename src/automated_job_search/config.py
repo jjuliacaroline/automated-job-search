@@ -11,6 +11,7 @@ class SourceDefinition:
     id: str
     name: str
     enabled: bool
+    section_label: str | None = None
     display_label: str | None = None
     search_url_template: str | None = None
     base_url: str | None = None
@@ -103,6 +104,7 @@ def load_sources(path: Path) -> list[SourceDefinition]:
         name = item.get("name")
         enabled = item.get("enabled")
         display_label = item.get("display_label")
+        section_label = item.get("section_label")
         search_url_template = item.get("search_url_template")
         base_url = item.get("base_url")
         query_encoding = item.get("query_encoding")
@@ -114,6 +116,8 @@ def load_sources(path: Path) -> list[SourceDefinition]:
             raise ValueError(f"Source {source_id!r} must include a non-empty string name")
         if not isinstance(display_label, str) and display_label is not None:
             raise ValueError(f"Source {source_id!r} display_label must be a string if provided")
+        if not isinstance(section_label, str) and section_label is not None:
+            raise ValueError(f"Source {source_id!r} section_label must be a string if provided")
         if not isinstance(notes, str) and notes is not None:
             raise ValueError(f"Source {source_id!r} notes must be a string if provided")
         if search_url_template is not None and not isinstance(search_url_template, str):
@@ -128,6 +132,7 @@ def load_sources(path: Path) -> list[SourceDefinition]:
             id=source_id.strip(),
             name=name.strip(),
             enabled=_coerce_bool(enabled, "enabled", source_id),
+            section_label=section_label.strip() if isinstance(section_label, str) else None,
             display_label=display_label.strip() if isinstance(display_label, str) else None,
             search_url_template=search_url_template.strip() if isinstance(search_url_template, str) else None,
             base_url=base_url.strip() if isinstance(base_url, str) else None,

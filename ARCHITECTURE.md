@@ -32,6 +32,7 @@ Sources use a minimal schema:
 - `id`
 - `name`
 - `enabled`
+- optional `section_label` for grouping in the browser UI
 - `search_url_template` or `base_url`
 - optional `notes`
 

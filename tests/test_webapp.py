@@ -16,6 +16,7 @@ class WebAppTests(unittest.TestCase):
             raw_keywords="environmental specialist",
         )
         self.assertIn("<!DOCTYPE html>", page)
+        self.assertIn("Ympäristötieteen alan tehtävät", page)
         self.assertIn(
             'href="https://www.jobly.fi/en/jobs/uusimaa?search=environmental%20specialist&amp;job_geo_location=&amp;Search_jobs=Search+jobs&amp;lat=&amp;lon=&amp;country=&amp;administrative_area_level_1="',
             page,
@@ -29,12 +30,32 @@ class WebAppTests(unittest.TestCase):
             selected_source_ids=["kuntarekry"],
             raw_keywords="environmental specialist",
         )
+        self.assertIn("Kaikki alan tehtävät", page)
         self.assertIn(
-            'href="https://www.kuntarekry.fi/fi/tyopaikat/?&amp;location=39022%2C39496%2C39498%2C39500%2C39502%2C39504%2C39506%2C39508%2C39510%2C39512%2C39514%2C39024%2C39516%2C39026%2C39028%2C39518%2C39520%2C39522%2C39030%2C39032%2C39524%2C39034%2C39526%2C39528%2C39530%2C39532&amp;profession=38858"',
+            'href="https://www.kuntarekry.fi/fi/tyopaikat-tehtavan-mukaan/tekninen-ala/ymparistoala/"',
             page,
         )
         self.assertIn("Ympäristöala", page)
-        self.assertIn("Kuntarekry", page)
+        self.assertIn("Kuntarekry - Kaikki alan tehtävät", page)
+
+    def test_render_page_groups_all_jobs_links_into_a_single_section(self) -> None:
+        page = render_page(
+            config_dir=None,
+            selected_source_ids=["jobly-all", "duunitori-all", "kuntarekry"],
+            raw_keywords="environmental specialist",
+        )
+        self.assertIn("Kaikki alan tehtävät", page)
+        self.assertEqual(page.count('href="https://www.jobly.fi/en/jobs/enviroment-and-sustainability/uusimaa"'), 1)
+        self.assertEqual(
+            page.count(
+                'href="https://duunitori.fi/tyopaikat?alue=Helsinki%3Bespoo%3Bvantaa&amp;haku=ympäristötieteen+alan+tehtävät+%28ala%29"'
+            ),
+            1,
+        )
+        self.assertEqual(
+            page.count('href="https://www.kuntarekry.fi/fi/tyopaikat-tehtavan-mukaan/tekninen-ala/ymparistoala/"'),
+            1,
+        )
 
     def test_render_page_exposes_junior_toggle_without_listing_terms(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -50,6 +71,7 @@ class WebAppTests(unittest.TestCase):
                     "id": "jobly",
                     "name": "Jobly",
                     "enabled": true,
+                    "section_label": "Ympäristötieteen alan tehtävät",
                     "search_url_template": "https://example.com/{query}"
                   }
                 ]

@@ -19,6 +19,10 @@ from .config import (
 from .generation import GeneratedLink, filter_sources, generate_links, normalize_keywords
 
 
+def _source_section_label(source: SourceDefinition) -> str:
+    return source.section_label or "Sources"
+
+
 def _split_keywords(raw_keyword: str) -> list[str]:
     keywords: list[str] = []
     for part in raw_keyword.replace(",", "\n").splitlines():
@@ -48,9 +52,18 @@ def _page_data(
     grouped_rows: dict[str, list[GeneratedLink]] = defaultdict(list)
     for row in rows:
         grouped_rows[row.source_id].append(row)
+    grouped_sources: dict[str, list[SourceDefinition]] = defaultdict(list)
+    section_order: list[str] = []
+    for source in enabled_sources:
+        section_label = _source_section_label(source)
+        if section_label not in grouped_sources:
+            section_order.append(section_label)
+        grouped_sources[section_label].append(source)
     return {
         "keyword_groups": keyword_groups,
         "enabled_sources": enabled_sources,
+        "grouped_sources": dict(grouped_sources),
+        "section_order": section_order,
         "keywords": selected_keywords,
         "raw_keywords": raw_keywords,
         "rows": rows,
@@ -74,59 +87,95 @@ def render_page(
         raw_keywords=raw_keywords,
         include_junior=include_junior,
     )
-    enabled_sources: list[SourceDefinition] = data["enabled_sources"]
     grouped_rows: dict[str, list[GeneratedLink]] = data["grouped_rows"]
     selected_ids: set[str] = data["selected_source_ids"]
+    grouped_sources: dict[str, list[SourceDefinition]] = data["grouped_sources"]
+    section_order: list[str] = data["section_order"]
     keywords: list[str] = data["keywords"]
     escaped_keywords = html.escape(data["raw_keywords"])
     keyword_groups: KeywordGroups = data["keyword_groups"]
     primary_keywords_preview = ", ".join(keyword_groups.primary[:6])
     junior_count = len(keyword_groups.junior)
-    cards: list[str] = []
+    result_sections: list[str] = []
+    source_option_sections: list[str] = []
 
-    for source in enabled_sources:
-        if source.id not in selected_ids:
-            continue
-        source_rows = grouped_rows.get(source.id, [])
-        links_markup = "\n".join(
-            (
-                f'<li><a href="{html.escape(row.url)}" target="_blank" rel="noreferrer">{html.escape(row.keyword)}</a>'
-                f'<span>{html.escape(row.url)}</span></li>'
+    for section_label in section_order:
+        section_sources = grouped_sources.get(section_label, [])
+        section_cards: list[str] = []
+        section_options: list[str] = []
+        for source in section_sources:
+            section_options.append(
+                f'<label class="source-option"><input type="checkbox" name="source" value="{html.escape(source.id)}"'
+                f' {"checked" if source.id in selected_ids else ""}>'
+                f'<span>{html.escape(source.name)}</span></label>'
             )
-            for row in source_rows
-        )
-        notes = f'<p class="source-notes">{html.escape(source.notes)}</p>' if source.notes else ""
-        cards.append(
-            dedent(
-                f"""
-                <section class="result-card">
-                  <div class="card-header">
-                    <div>
-                      <p class="eyebrow">{html.escape(source.id)}</p>
-                      <h2>{html.escape(source.name)}</h2>
-                    </div>
-                    <span class="pill">{len(source_rows)} links</span>
-                  </div>
-                  {notes}
-                  <ul class="link-list">
-                    {links_markup}
-                  </ul>
-                </section>
-                """
-            ).strip()
-        )
+            if source.id not in selected_ids:
+                continue
+            source_rows = grouped_rows.get(source.id, [])
+            links_markup = "\n".join(
+                (
+                    f'<li><a href="{html.escape(row.url)}" target="_blank" rel="noreferrer">{html.escape(row.keyword)}</a>'
+                    f'<span>{html.escape(row.url)}</span></li>'
+                )
+                for row in source_rows
+            )
+            notes = f'<p class="source-notes">{html.escape(source.notes)}</p>' if source.notes else ""
+            section_cards.append(
+                dedent(
+                    f"""
+                    <section class="result-card">
+                      <div class="card-header">
+                        <div>
+                          <p class="eyebrow">{html.escape(source.id)}</p>
+                          <h2>{html.escape(source.name)}</h2>
+                        </div>
+                        <span class="pill">{len(source_rows)} links</span>
+                      </div>
+                      {notes}
+                      <ul class="link-list">
+                        {links_markup}
+                      </ul>
+                    </section>
+                    """
+                ).strip()
+            )
+        if section_cards:
+            result_sections.append(
+                dedent(
+                    f"""
+                    <section class="result-section">
+                      <div class="result-section-header">
+                        <p class="section-title">{html.escape(section_label)}</p>
+                      </div>
+                      <div class="result-grid">
+                        {"\n".join(section_cards)}
+                      </div>
+                    </section>
+                    """
+                ).strip()
+            )
+        if section_options:
+            source_option_sections.append(
+                dedent(
+                    f"""
+                    <section class="source-section">
+                      <p class="section-title">{html.escape(section_label)}</p>
+                      <div class="source-grid">
+                        {"\n".join(section_options)}
+                      </div>
+                    </section>
+                    """
+                ).strip()
+            )
 
-    source_options = "\n".join(
-        (
-            f'<label class="source-option"><input type="checkbox" name="source" value="{html.escape(source.id)}"'
-            f' {"checked" if source.id in selected_ids else ""}>'
-            f'<span>{html.escape(source.name)}</span></label>'
-        )
-        for source in enabled_sources
-    )
     error_banner = f'<div class="error-banner">{html.escape(error_message)}</div>' if error_message else ""
     selected_count = len(selected_ids)
-    page_body = "\n".join(cards) if cards else '<section class="empty-state">No links matched the current filters.</section>'
+    page_body = (
+        "\n".join(result_sections)
+        if result_sections
+        else '<section class="empty-state">No links matched the current filters.</section>'
+    )
+    source_options = "\n".join(source_option_sections)
 
     return dedent(
         f"""
@@ -253,6 +302,9 @@ def render_page(
               gap: 10px;
               margin-top: 10px;
             }}
+            .source-section + .source-section {{
+              margin-top: 18px;
+            }}
             .source-option {{
               display: flex;
               align-items: center;
@@ -300,6 +352,13 @@ def render_page(
             .result-grid {{
               display: grid;
               gap: 16px;
+            }}
+            .result-section {{
+              display: grid;
+              gap: 12px;
+            }}
+            .result-section-header {{
+              padding-top: 2px;
             }}
             .result-card {{
               padding: 18px;
@@ -402,9 +461,7 @@ def render_page(
                     <span>Include junior keywords as an extra group ({junior_count})</span>
                   </label>
                   <p class="section-title" style="margin-top: 22px;">Sources</p>
-                  <div class="source-grid">
-                    {source_options}
-                  </div>
+                  {source_options}
                   <div class="actions">
                     <button type="submit">Refresh Results</button>
                     <a class="ghost-link" href="/">Reset</a>
