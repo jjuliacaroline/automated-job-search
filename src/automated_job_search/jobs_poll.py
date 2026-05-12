@@ -20,6 +20,9 @@ from .generation import build_search_url, normalize_keywords
 USER_AGENT = "EnvironmentalJobsBot/0.1 (+mailto:your@email)"
 DB_PATH = Path("last_seen_urls.sqlite")
 RESULT_TABLE_SQL = "CREATE TABLE IF NOT EXISTS seen (url TEXT PRIMARY KEY)"
+DEFAULT_POLL_REQUEST_DELAY_SECONDS = 5.0
+DEFAULT_POLL_MAX_ALERTS_PER_RUN = 5
+POLL_REQUEST_JITTER_SECONDS = 1.0
 
 
 @dataclass(frozen=True)
@@ -42,8 +45,7 @@ class PollTarget:
 
 
 POLL_ALLOWLIST: tuple[AllowlistEntry, ...] = (
-    AllowlistEntry(kind="keyword_template", family="jobly", source_id="jobly", source_name="Jobly"),
-    AllowlistEntry(kind="keyword_template", family="duunitori", source_id="duunitori", source_name="Duunitori"),
+    # Restrict polling to the two fixed category pages to reduce noisy keyword expansion.
     AllowlistEntry(
         kind="fixed_category",
         family="jobly",
@@ -218,6 +220,38 @@ def _load_bot(token: str, bot_factory: Callable[[str], object] | None = None) ->
     return _create_bot(token)
 
 
+def _get_poll_request_delay_seconds() -> float:
+    raw_value = os.getenv("POLL_REQUEST_DELAY_SECONDS", "").strip()
+    if not raw_value:
+        return DEFAULT_POLL_REQUEST_DELAY_SECONDS
+    try:
+        delay_seconds = float(raw_value)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise RuntimeError("POLL_REQUEST_DELAY_SECONDS must be a number") from exc
+    if delay_seconds < 0:
+        raise RuntimeError("POLL_REQUEST_DELAY_SECONDS must be non-negative")
+    return delay_seconds
+
+
+def _get_poll_max_alerts_per_run() -> int:
+    raw_value = os.getenv("POLL_MAX_ALERTS_PER_RUN", "").strip()
+    if not raw_value:
+        return DEFAULT_POLL_MAX_ALERTS_PER_RUN
+    try:
+        limit = int(raw_value)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise RuntimeError("POLL_MAX_ALERTS_PER_RUN must be an integer") from exc
+    if limit < 0:
+        raise RuntimeError("POLL_MAX_ALERTS_PER_RUN must be non-negative")
+    return limit
+
+
+def _sleep_with_jitter(sleep_fn: Callable[[float], None], base_seconds: float) -> None:
+    if base_seconds <= 0:
+        return
+    sleep_fn(base_seconds + random.uniform(0.0, POLL_REQUEST_JITTER_SECONDS))
+
+
 def _run_send(
     *,
     bot: object,
@@ -241,6 +275,11 @@ def run_poll(
 ) -> int:
     token, chat_id = _require_telegram_config()
     targets = build_poll_targets(config_dir)
+    request_delay_seconds = _get_poll_request_delay_seconds()
+    max_alerts_per_run = _get_poll_max_alerts_per_run()
+    if max_alerts_per_run == 0:
+        return 0
+
     connection = sqlite3.connect(db_path)
     _ensure_schema(connection)
     bot = _load_bot(token, bot_factory)
@@ -249,23 +288,24 @@ def run_poll(
     sent_count = 0
 
     for index, target in enumerate(targets):
+        if index > 0:
+            _sleep_with_jitter(sleep_fn, request_delay_seconds)
+
         try:
             page_html = fetch(target.url)
         except Exception as exc:  # pragma: no cover - exercised in tests
             print(f"Skipping {target.url}: {exc}", file=sys.stderr)
-            if index < len(targets) - 1:
-                sleep_fn(random.uniform(2, 5))
             continue
 
         extractor = EXTRACTORS.get(target.family)
         if extractor is None:
             print(f"Skipping {target.url}: no extractor for family {target.family!r}", file=sys.stderr)
-            if index < len(targets) - 1:
-                sleep_fn(random.uniform(2, 5))
             continue
 
         result_urls = extractor(page_html, target.url)
         for result_url in result_urls:
+            if sent_count >= max_alerts_per_run:
+                return sent_count
             if result_url in processed_urls or _is_seen(connection, result_url):
                 continue
             processed_urls.add(result_url)
@@ -283,9 +323,6 @@ def run_poll(
                 continue
             _mark_seen(connection, result_url)
             sent_count += 1
-
-        if index < len(targets) - 1:
-            sleep_fn(random.uniform(2, 5))
 
     return sent_count
 
